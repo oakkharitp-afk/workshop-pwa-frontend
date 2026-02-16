@@ -1,5 +1,21 @@
 # workshop-pwa-frontend
 
+APP
+
+https://nextjs.org/docs/app/getting-started/installation
+
+Tools
+
+https://tailwindcss.com
+
+https://ui.shadcn.com/
+
+Map
+
+https://maplibre.org
+
+https://www.npmjs.com/package/maplibre-gl
+
 Style
 
 https://tiles.openfreemap.org/styles/bright
@@ -17,6 +33,8 @@ https://maplibre.org/maplibre-gl-js/docs/examples/update-a-feature-in-realtime/
 Tools
 
 https://maplibre.org/maputnik
+
 https://github.com/mapbox/mapbox-gl-draw/tree/main
+
 https://geojson.io
 
