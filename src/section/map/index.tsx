@@ -29,6 +29,7 @@ const Mapcomponent = () => {
   const [editFeature, seteditFeature] = useState<any>(null);
   const [selectMode, setselectMode] = useState(false);
   const [featureType, setfeatureType] = useState("");
+  const [selectFeature, setselectFeature] = useState([]);
   useEffect(() => {
     const initMap = new maplibregl.Map({
       container: "map",
@@ -39,6 +40,7 @@ const Mapcomponent = () => {
       center: [102.73948342180302, 16.286630370487046],
     });
     const Draw: any = new MapboxDraw({
+      displayControlsDefault: false,
       styles: [
         {
           id: "gl-draw-polygon-fill",
@@ -189,7 +191,10 @@ const Mapcomponent = () => {
   useEffect(() => {
     const onClick = (e: any) => {
       const features: any = map?.queryRenderedFeatures(e.point);
-      if (features?.[0]) {
+
+      if (features?.length > 1) {
+        setselectFeature(features);
+      } else if (features?.[0]) {
         const f = features[0];
 
         map?.setFilter(f.layer.id, [
@@ -215,6 +220,60 @@ const Mapcomponent = () => {
 
   return (
     <div className="h-screen w-screen relative">
+      <Dialog
+        open={Boolean(selectFeature.length)}
+        onOpenChange={(s) => {
+          if (!s) {
+            setselectFeature([]);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>เลือกข้อมูลที่ต้องการแก้ไข</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[60vh] ">
+            <div className="flex flex-col space-y-2">
+              {selectFeature.map((x: any, index: number) => {
+                return (
+                  <div
+                    key={`layer-${index}`}
+                    className="border rounded-2xl p-2 cursor-pointer"
+                    onClick={() => {
+                      map?.setFilter(x.layer.id, [
+                        "any",
+                        ["all", ["!=", "_id", x.properties._id]],
+                      ]);
+                      let add = x;
+                      add.properties[`_remove_type`] = x.layer.id;
+
+                      draw?.add(add);
+                      draw?.changeMode("simple_select", { featureIds: x.id });
+                      setselectFeature([]);
+                      setselectMode(false);
+                    }}
+                  >
+                    <p> {x.layer.id}</p>
+
+                    {Object.keys(x?.properties)
+                      .filter((s: any) => !s.startsWith("_"))
+                      .map((l: any) => {
+                        return (
+                          <div key={l} className="flex flex-row space-x-2">
+                            <p>{l}</p>
+                            <p> : </p>
+                            <p>{x?.properties[l] ? x?.properties[l] : ""}</p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={Boolean(editFeature)}
         onOpenChange={(s) => {
