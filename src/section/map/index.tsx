@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -10,11 +10,12 @@ import { MoveUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
-
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -26,14 +27,16 @@ const Mapcomponent = () => {
   const [mouseLocation, setmouseLocation] = useState<any>(undefined);
   const [draw, setdraw] = useState<any>(null);
   const [editFeature, seteditFeature] = useState<any>(null);
-
+  const [selectMode, setselectMode] = useState(false);
+  const [featureType, setfeatureType] = useState("");
   useEffect(() => {
     const initMap = new maplibregl.Map({
       container: "map",
-      style: "https://tiles.openfreemap.org/styles/bright",
-      zoom: 17,
+      style:
+        "https://app.vallarismaps.com/core/api/styles/1.0-beta/styles/698d91b491e3337911ebe988?api_key=Y9TeAcfoHoT3RKGW44za0T1dF4bYHaOScEXy8cCLbUEDOtqXolbRSq7S3C2hkDAv",
+      zoom: 13,
 
-      center: [102.819242, 16.455854],
+      center: [102.73948342180302, 16.286630370487046],
     });
     const Draw: any = new MapboxDraw({
       styles: [
@@ -171,15 +174,44 @@ const Mapcomponent = () => {
       }
     });
   }, []);
-
+  // "step_test" | "flow_meter" | "dma_boundary"
   useEffect(() => {
     map?.on("draw.create", (e: any) => {
       const feature = e.features[0];
       draw?.setFeatureProperty(feature.id, "name", "PWA");
       draw?.setFeatureProperty(feature.id, "description", "PWA-WORKSHOP");
+      draw?.setFeatureProperty(feature.id, "_remove_create", true);
+      draw?.setFeatureProperty(feature.id, "_remove_type", featureType);
     });
-  }, [map, draw]);
+  }, [map, draw, featureType]);
   // editFeature ? true : false
+
+  useEffect(() => {
+    const onClick = (e: any) => {
+      const features: any = map?.queryRenderedFeatures(e.point);
+      if (features?.[0]) {
+        const f = features[0];
+
+        map?.setFilter(f.layer.id, [
+          "any",
+          ["all", ["!=", "_id", f.properties._id]],
+        ]);
+        let add = f;
+        add.properties[`_remove_type`] = f.layer.id;
+
+        draw?.add(add);
+        draw?.changeMode("simple_select", { featureIds: f.id });
+        setselectMode(false);
+      }
+    };
+    if (selectMode) {
+      map?.on("click", onClick);
+    }
+
+    return () => {
+      map?.off("click", onClick);
+    };
+  }, [map, selectMode]);
 
   return (
     <div className="h-screen w-screen relative">
@@ -199,34 +231,55 @@ const Mapcomponent = () => {
               account and remove your data from our servers.
             </DialogDescription>
           </DialogHeader>
+          <ScrollArea className="h-[60vh]">
+            {Object.keys(editFeature ? editFeature?.properties : {})
+              .filter((s: any) => !s.startsWith("_"))
+              .map((l: any) => {
+                return (
+                  <div key={l}>
+                    <p>{l}</p>
+                    <Input
+                      value={
+                        editFeature?.properties[l]
+                          ? editFeature?.properties[l]
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const newData = {
+                          ...editFeature,
+                          properties: {
+                            ...editFeature.properties,
+                            [l]: e.target.value,
+                          },
+                        };
 
-          {Object.keys(editFeature ? editFeature?.properties : {}).map(
-            (l: any) => {
-              return (
-                <div key={l}>
-                  <p>{l}</p>
-                  <Input
-                    value={
-                      editFeature?.properties[l]
-                        ? editFeature?.properties[l]
-                        : ""
-                    }
-                    onChange={(e) => {
-                      const newData = {
-                        ...editFeature,
-                        properties: {
-                          ...editFeature.properties,
-                          [l]: e.target.value,
-                        },
-                      };
+                        seteditFeature(newData);
+                      }}
+                    />
+                  </div>
+                );
+              })}
+          </ScrollArea>
 
-                      seteditFeature(newData);
-                    }}
-                  />
-                </div>
-              );
-            },
-          )}
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                let all = draw?.getAll();
+
+                const index = all.features?.findIndex(
+                  (x: any) => x.id === editFeature.id,
+                );
+
+                all.features[index] = editFeature;
+
+                draw?.set(all);
+
+                seteditFeature(null);
+              }}
+            >
+              SAVE
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -240,26 +293,44 @@ const Mapcomponent = () => {
       <div className="absolute z-10 right-2 top-1/2 flex flex-col space-y-2">
         <Button
           onClick={() => {
-            draw?.changeMode("draw_point");
+            setselectMode(selectMode ? false : true);
           }}
         >
-          Draw point
+          {selectMode ? "Cancel Select" : "Select Feature"}
+        </Button>
+        <Button
+          onClick={() => {
+            draw?.changeMode("draw_point");
+            setfeatureType("flow_meter");
+          }}
+        >
+          Draw flow_meter
         </Button>
 
-        <Button
+        {/* <Button
           onClick={() => {
             draw?.changeMode("draw_line_string");
           }}
         >
           Draw line
+        </Button> */}
+
+        <Button
+          onClick={() => {
+            draw?.changeMode("draw_polygon");
+            setfeatureType("dma_boundary");
+          }}
+        >
+          Draw dma_boundary
         </Button>
 
         <Button
           onClick={() => {
             draw?.changeMode("draw_polygon");
+            setfeatureType("step_test");
           }}
         >
-          Draw polygon
+          Draw step_test
         </Button>
         <Button
           onClick={() => {
