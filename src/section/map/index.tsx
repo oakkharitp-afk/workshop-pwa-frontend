@@ -320,7 +320,25 @@ const Mapcomponent = () => {
     ).then(async (response) => {
       return { status: response.status, result: await response.json() };
     });
-    console.log(get);
+
+    if (get?.result?.features?.length && get?.result?.features[0]) {
+      const f = get?.result?.features[0];
+      const check = allFeature.features.map((x: any) => {
+        const intersect = turf.booleanIntersects(x, f);
+
+        return intersect;
+      });
+
+      console.log(check);
+      if (check.includes(true)) {
+        console.log("ทับ");
+      } else {
+        console.log("ไม่ทับ");
+      }
+      //turf.booleanIntersects(line, point1);
+    } else {
+      console.log("สำเร็จ");
+    }
 
     // console.log(turf.bbox(allFeature));
 
