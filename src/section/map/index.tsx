@@ -20,6 +20,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { bbox } from "@turf/bbox";
+
 const Mapcomponent = () => {
   const [map, setmap] = useState<any>(null);
   const [layerControl, setlayerControl] = useState({ point: false });
@@ -30,6 +32,7 @@ const Mapcomponent = () => {
   const [selectMode, setselectMode] = useState(false);
   const [featureType, setfeatureType] = useState("");
   const [selectFeature, setselectFeature] = useState([]);
+  const [deleteFeature, setdeleteFeature] = useState([]);
   useEffect(() => {
     const initMap = new maplibregl.Map({
       container: "map",
@@ -191,11 +194,18 @@ const Mapcomponent = () => {
   useEffect(() => {
     const onClick = (e: any) => {
       const features: any = map?.queryRenderedFeatures(e.point);
+      const filterfeatures = features.filter(
+        (x: any) =>
+          x.layer.id === "step_test" ||
+          x.layer.id === "flow_meter" ||
+          x.layer.id === "dma_boundary",
+        // ["step_test", "flow_meter", "dma_boundary"].includes(x.layer.id),
+      );
 
-      if (features?.length > 1) {
-        setselectFeature(features);
-      } else if (features?.[0]) {
-        const f = features[0];
+      if (filterfeatures?.length > 1) {
+        setselectFeature(filterfeatures);
+      } else if (filterfeatures?.[0]) {
+        const f = filterfeatures[0];
 
         map?.setFilter(f.layer.id, [
           "any",
@@ -218,6 +228,105 @@ const Mapcomponent = () => {
     };
   }, [map, selectMode]);
 
+  const onSave = () => {
+    const allFeature = draw?.getAll();
+    console.log(allFeature);
+    const addFeature: any = {
+      step_test: [],
+      flow_meter: [],
+      dma_boundary: [],
+    };
+
+    allFeature.features
+      ?.filter((x: any) => x.properties._remove_create)
+      ?.map((y: any) => {
+        const type = y.properties._remove_type;
+
+        delete y.id;
+        delete y.properties._remove_create;
+
+        delete y.properties._remove_type;
+        if (type === "step_test") {
+          addFeature.step_test.push(y);
+        } else if (type === "flow_meter") {
+          delete y.id;
+          addFeature.flow_meter.push(y);
+        } else if (type === "dma_boundary") {
+          delete y.id;
+          addFeature.dma_boundary.push(y);
+        }
+      });
+
+    const Delete = {
+      type: "FeatureCollection",
+      features: deleteFeature,
+    };
+
+    // const addFeature = allFeature.features
+    //   ?.filter((x: any) => x.properties._remove_create)
+    //   ?.reduce(
+    //     (previous: any, current: any) => {
+    //       const type = current.properties._remove_type;
+    //       return {
+    //         ...previous,
+    //         [type]: [...previous[type], current],
+    //       };
+    //     },
+    //     {
+    //       step_test: [],
+    //       flow_meter: [],
+    //       dma_boundary: [],
+    //     },
+    //   );
+
+    // const { properties, id, ...other } = current;
+    // const { _remove_create, _remove_type, ...a } = properties;
+    // const body = { ...other, properties: { ...a } };
+    // return {
+    //   ...previous,
+    //   [_remove_type]: [...previous[_remove_type], body],
+    // };
+  };
+
+  const onCheck = async () => {
+    const allFeature = draw?.getAll();
+
+    // const boundingBox = bbox(allFeature);
+
+    // const get = await fetch(
+    //   `${process.env.NEXT_PUBLIC_PWA_HOST}/collections/flow_meter/items?bbox=${boundingBox.join(",")}`,
+    // ).then(async (response) => {
+    //   return { status: response.status, result: await response.json() };
+    // });
+    // console.log(get);
+
+    const [minLon, minLat, maxLon, maxLat] = bbox(allFeature);
+    const minCoord = map.project([minLon, minLat]); // or [minLon, minLat];
+    const maxCoord = map.project([maxLon, maxLat]); // or [maxLon, maxLat];
+
+    const bound = [minCoord, maxCoord];
+    const features = map?.queryRenderedFeatures(bound, {
+      layers: ["flow_meter"],
+    });
+
+    console.log(features);
+
+    // layers: "flow_meter",
+  };
+
+  const onDelete = () => {
+    const selectfeature = draw?.getSelected();
+
+    const remove = selectfeature?.features.map((x: any) => {
+      draw?.delete(x.id);
+
+      return { id: x.properties._id };
+    });
+    setdeleteFeature(remove);
+    //   const feature = draw?.getSelectedIds();
+
+    // draw?.delete(feature);
+  };
   return (
     <div className="h-screen w-screen relative">
       <Dialog
@@ -393,9 +502,7 @@ const Mapcomponent = () => {
         </Button>
         <Button
           onClick={() => {
-            const feature = draw?.getSelectedIds();
-
-            draw?.delete(feature);
+            onDelete();
           }}
         >
           Delete
@@ -420,10 +527,16 @@ const Mapcomponent = () => {
         >
           Attribute
         </Button>
-
         <Button
           onClick={() => {
-            console.log(draw?.getAll());
+            onCheck();
+          }}
+        >
+          Check
+        </Button>
+        <Button
+          onClick={() => {
+            onSave();
           }}
         >
           Save
