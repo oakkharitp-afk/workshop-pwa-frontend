@@ -20,7 +20,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { bbox } from "@turf/bbox";
+
+import * as turf from "@turf/turf";
 
 const Mapcomponent = () => {
   const [map, setmap] = useState<any>(null);
@@ -312,25 +313,31 @@ const Mapcomponent = () => {
   const onCheck = async () => {
     const allFeature = draw?.getAll();
 
-    // const boundingBox = bbox(allFeature);
+    const boundingBox = turf.bbox(allFeature);
 
-    // const get = await fetch(
-    //   `${process.env.NEXT_PUBLIC_PWA_HOST}/collections/flow_meter/items?bbox=${boundingBox.join(",")}`,
-    // ).then(async (response) => {
-    //   return { status: response.status, result: await response.json() };
-    // });
-    // console.log(get);
-
-    const [minLon, minLat, maxLon, maxLat] = bbox(allFeature);
-    const minCoord = map.project([minLon, minLat]); // or [minLon, minLat];
-    const maxCoord = map.project([maxLon, maxLat]); // or [maxLon, maxLat];
-
-    const bound = [minCoord, maxCoord];
-    const features = map?.queryRenderedFeatures(bound, {
-      layers: ["flow_meter"],
+    const get = await fetch(
+      `${process.env.NEXT_PUBLIC_PWA_HOST}/collections/dma_boundary/items?bbox=${boundingBox.join(",")}`,
+    ).then(async (response) => {
+      return { status: response.status, result: await response.json() };
     });
+    console.log(get);
 
-    console.log(features);
+    // console.log(turf.bbox(allFeature));
+
+    // const [minLon, minLat, maxLon, maxLat] = turf.bbox(allFeature);
+
+    // const minCoord = map.project([minLon, minLat]); // or [minLon, minLat];
+    // const maxCoord = map.project([maxLon, maxLat]); // or [maxLon, maxLat];
+
+    // const bound = [minCoord, maxCoord];
+
+    // const features = map?.queryRenderedFeatures(bound, {
+    //   layers: ["dma_boundary"],
+    // });
+
+    // console.log(features);
+
+    // console.log(features);
 
     // layers: "flow_meter",
   };
