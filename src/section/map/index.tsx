@@ -33,6 +33,7 @@ const Mapcomponent = () => {
   const [featureType, setfeatureType] = useState("");
   const [selectFeature, setselectFeature] = useState([]);
   const [deleteFeature, setdeleteFeature] = useState([]);
+
   useEffect(() => {
     const initMap = new maplibregl.Map({
       container: "map",
@@ -230,7 +231,7 @@ const Mapcomponent = () => {
 
   const onSave = () => {
     const allFeature = draw?.getAll();
-    console.log(allFeature);
+
     const addFeature: any = {
       step_test: [],
       flow_meter: [],
@@ -257,10 +258,30 @@ const Mapcomponent = () => {
         }
       });
 
-    const Delete = {
-      type: "FeatureCollection",
-      features: deleteFeature,
-    };
+    // const Delete = {
+    //   type: "FeatureCollection",
+    //   features: deleteFeature,
+    // };
+
+    deleteFeature.map((x: any) => {
+      if (x.type === "step_test") {
+        delete x.type;
+
+        const Delete = fetch(`/colection/step_test/items`, {
+          body: JSON.stringify(x),
+        });
+      } else if (x.type === "flow_meter") {
+        delete x.type;
+        const Delete = fetch(`/colection/flow_meter/items`, {
+          body: JSON.stringify(x),
+        });
+      } else if (x.type === "dma_boundary") {
+        delete x.type;
+        const Delete = fetch(`/colection/dma_boundary/items`, {
+          body: JSON.stringify(x),
+        });
+      }
+    });
 
     // const addFeature = allFeature.features
     //   ?.filter((x: any) => x.properties._remove_create)
@@ -320,7 +341,7 @@ const Mapcomponent = () => {
     const remove = selectfeature?.features.map((x: any) => {
       draw?.delete(x.id);
 
-      return { id: x.properties._id };
+      return { id: x.properties._id, type: x.properties._remove_type };
     });
     setdeleteFeature(remove);
     //   const feature = draw?.getSelectedIds();
