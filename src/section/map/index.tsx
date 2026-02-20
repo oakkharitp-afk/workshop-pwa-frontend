@@ -1,12 +1,22 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { MoveUp } from "lucide-react";
+import {
+  Layers,
+  Minus,
+  MoveUp,
+  Pencil,
+  Plus,
+  Save,
+  Settings,
+  Sheet,
+  Trash2,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
@@ -22,19 +32,50 @@ import {
 } from "@/components/ui/dialog";
 
 import * as turf from "@turf/turf";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+import { Slider } from "@/components/ui/slider";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 const Mapcomponent = () => {
   const [map, setmap] = useState<any>(null);
-  const [layerControl, setlayerControl] = useState({ point: false });
+
+  const [draw, setdraw] = useState<any>(null);
   const [rotate, setrotate] = useState(0);
   const [mouseLocation, setmouseLocation] = useState<any>(undefined);
-  const [draw, setdraw] = useState<any>(null);
+
   const [editFeature, seteditFeature] = useState<any>(null);
-  const [selectMode, setselectMode] = useState(false);
+
+  const [modeStatus, setmodeStatus] = useState({
+    selectMode: false,
+    drawMode: false,
+    selected: false,
+    canSave: false,
+  });
   const [featureType, setfeatureType] = useState("");
   const [selectFeature, setselectFeature] = useState([]);
   const [deleteFeature, setdeleteFeature] = useState([]);
+  const [loading, setloading] = useState(false);
 
+  const [layerList, setlayerList] = useState<any[]>([]);
+  const [collape, setcollape] = useState(undefined);
+
+  // init map
   useEffect(() => {
     const initMap = new maplibregl.Map({
       container: "map",
@@ -151,47 +192,184 @@ const Mapcomponent = () => {
     setmap(initMap);
 
     initMap.on("load", (e) => {
-      e.target.addSource("contours", {
-        type: "vector",
-        url: "https://api.maptiler.com/tiles/contours/tiles.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL",
-      });
+      //เพิ่ม label ของ flow_meter
       e.target.addLayer({
-        id: "contour-lines",
-        type: "line",
-        source: "contours",
-        "source-layer": "contour",
+        id: "flow_meter-label",
+        type: "symbol",
+        source: "698bf11cc5216bc71ba8d53f",
+        "source-layer": "698bf11cc5216bc71ba8d53f",
         layout: {
-          "line-join": "round",
-          "line-cap": "round",
+          "text-field": [
+            "format",
+            ["get", "pipetype"],
+            {},
+            "\n",
+            {},
+            ["get", "pipesize"],
+            {},
+          ],
+          "text-size": 14,
+          "text-anchor": "center",
+          "text-offset": [0, 1],
         },
         paint: {
-          "line-color": "#ff69b4",
-          "line-width": 1,
+          "text-color": "#000",
+          "text-halo-color": "#fff",
+          "text-halo-width": 1,
         },
       });
+      // e.target.addSource("contours", {
+      //   type: "vector",
+      //   url: "https://api.maptiler.com/tiles/contours/tiles.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL",
+      // });
+      // e.target.addLayer({
+      //   id: "contour-lines",
+      //   type: "line",
+      //   source: "contours",
+      //   "source-layer": "contour",
+      //   layout: {
+      //     "line-join": "round",
+      //     "line-cap": "round",
+      //   },
+      //   paint: {
+      //     "line-color": "#ff69b4",
+      //     "line-width": 1,
+      //   },
+      // });
+      // e.target.addSource("pipe", {
+      //   type: "vector",
+      //   url: "https://app.vallarismaps.com/core/api/tiles/1.0-beta/tiles/699803ec7ecb1e590bff5b5c?api_key=Y9TeAcfoHoT3RKGW44za0T1dF4bYHaOScEXy8cCLbUEDOtqXolbRSq7S3C2hkDAv",
+      // });
+      // e.target.addLayer({
+      //   id: "pipe",
+      //   type: "line",
+      //   source: "pipe",
+      //   "source-layer": "699803ec7ecb1e590bff5b5c",
+      //   layout: {
+      //     "line-join": "round",
+      //     "line-cap": "round",
+      //   },
+      //   paint: {
+      //     "line-color": "#ff69b4",
+      //     "line-width": 4,
+      //   },
+      // });
+      // setlayerList([
+      //   {
+      //     id: "pipe",
+      //     status: true,
+      //     opacity: 1,
+      //   },
+      // ]);
+
+      // ปรับการแสดงผลตามเงื่อนไข
+
+      // e.target?.setPaintProperty("flow_meter", "circle-color", [
+      //   "case",
+      //   ["==", ["to-number", ["get", "metersize"]], 4],
+      //   "red",
+      //   [">", ["to-number", ["get", "metersize"]], 5],
+      //   "yellow",
+      //   "green",
+      // ]);
+      // e.target?.setPaintProperty("pipe", "line-color", [
+      //   "case",
+      //   ["<", ["-", 2569, ["get", "year"]], 20],
+      //   "#000000", // อายุน้อยกว่า 20 ปี → ดำ
+      //   "#ff0000", // มากกว่า/เท่ากับ 20 ปี → แดง
+      // ]);
+      // e.target?.setFilter("pipe", [
+      //   "any",
+      //   ["all", ["!=", "custcode", "10610000297"]],
+      // ]);
+      //   [
+      //   "all",
+      //   [">=", ["get", "metersize"], 4],
+      //   ["<=", ["get", "metersize"], 6]
+      // ],
+      //metersize
     });
 
+    // event เมื่อ แผนที่ rotate
     initMap.on("rotate", (e) => {
       setrotate(e.target.getBearing());
     });
 
+    // get ค่า lat lng ตอน mouse move
     initMap.on("mousemove", (e) => {
       if (e.lngLat) {
         setmouseLocation(e?.lngLat);
       }
     });
   }, []);
-  // "step_test" | "flow_meter" | "dma_boundary"
+
+  // useEffect สำหรับ enable ปุ่ม save
   useEffect(() => {
-    map?.on("draw.create", (e: any) => {
+    map?.on("draw.create", () => {
+      setmodeStatus((p: any) => {
+        return { ...p, canSave: true };
+      });
+    });
+
+    map?.on("draw.update", () => {
+      setmodeStatus((p: any) => {
+        return { ...p, canSave: true };
+      });
+    });
+
+    return () => {
+      map?.off("draw.create", () => {
+        setmodeStatus((p: any) => {
+          return { ...p, canSave: true };
+        });
+      });
+
+      map?.off("draw.update", () => {
+        setmodeStatus((p: any) => {
+          return { ...p, canSave: true };
+        });
+      });
+    };
+  }, [draw, map]);
+
+  // useEffect สำหรับ feature ที่สร้างขึ้นมาใหม่
+  useEffect(() => {
+    const onCreate = (e: any) => {
       const feature = e.features[0];
       draw?.setFeatureProperty(feature.id, "name", "PWA");
       draw?.setFeatureProperty(feature.id, "description", "PWA-WORKSHOP");
       draw?.setFeatureProperty(feature.id, "_remove_create", true);
       draw?.setFeatureProperty(feature.id, "_remove_type", featureType);
-    });
+    };
+
+    map?.on("draw.create", onCreate);
+
+    return () => {
+      map?.off("draw.create", onCreate);
+    };
   }, [map, draw, featureType]);
-  // editFeature ? true : false
+  //useEffect สำหรับ enable ปุ่ม set attribute
+  useEffect(() => {
+    const onSelect = (e: any) => {
+      const selectedFeatures = e.features;
+
+      if (selectedFeatures.length > 0) {
+        setmodeStatus((p: any) => {
+          return { ...p, selected: true };
+        });
+      } else {
+        setmodeStatus((p: any) => {
+          return { ...p, selected: false };
+        });
+      }
+    };
+    // event ตอนที่มีการเลือก feature ฝั่ง mapboxDraw
+    map?.on("draw.selectionchange", onSelect);
+
+    return () => {
+      map?.off("draw.selectionchange", onSelect);
+    };
+  }, [map]);
 
   useEffect(() => {
     const onClick = (e: any) => {
@@ -200,12 +378,16 @@ const Mapcomponent = () => {
         (x: any) =>
           x.layer.id === "step_test" ||
           x.layer.id === "flow_meter" ||
-          x.layer.id === "dma_boundary",
+          x.layer.id === "dma_boundary" ||
+          x.layer.id === "pipe",
         // ["step_test", "flow_meter", "dma_boundary"].includes(x.layer.id),
       );
 
       if (filterfeatures?.length > 1) {
         setselectFeature(filterfeatures);
+        setmodeStatus((p: any) => {
+          return { ...p, selected: true };
+        });
       } else if (filterfeatures?.[0]) {
         const f = filterfeatures[0];
 
@@ -218,18 +400,65 @@ const Mapcomponent = () => {
 
         draw?.add(add);
         draw?.changeMode("simple_select", { featureIds: f.id });
-        setselectMode(false);
+        setmodeStatus((p: any) => {
+          return { ...p, selectMode: false, selected: true };
+        });
       }
     };
-    if (selectMode) {
+
+    const onClickWithoutSelect = (e: any) => {
+      const query = e.target.queryRenderedFeatures(e.point);
+
+      if (query?.length) {
+        const coordinates: any = [e.lngLat.lng, e.lngLat.lat].slice();
+
+        new maplibregl.Popup()
+          .setLngLat(coordinates)
+          .setHTML(
+            `<div class="flex flex-col space-y-2">
+           ${query
+             .map((q: any) => {
+               return `<div key={q.id}><p>${q.layer.id}</p></div>`;
+             })
+             .join("")}
+            </div>`,
+          )
+          .addTo(map);
+      }
+    };
+
+    if (modeStatus.selectMode) {
+      //เงื่อนไขเมื่อเลือก tile เพื่อเปลี่ยนเป็น feature
       map?.on("click", onClick);
+    } else {
+      //เงื่อนไขที่จะแสดง popup แสดง properties
+      map?.on("click", onClickWithoutSelect);
     }
 
     return () => {
-      map?.off("click", onClick);
+      if (modeStatus.selectMode) {
+        map?.off("click", onClick);
+      } else {
+        map?.off("click", onClickWithoutSelect);
+      }
     };
-  }, [map, selectMode]);
+  }, [map, modeStatus.selectMode]);
 
+  const onSelectFeature = (feature: any) => {
+    map?.setFilter(feature.layer.id, [
+      "any",
+      ["all", ["!=", "_id", feature.properties._id]],
+    ]);
+    let add = feature;
+    add.properties[`_remove_type`] = feature.layer.id;
+
+    draw?.add(add);
+    draw?.changeMode("simple_select", { featureIds: feature.id });
+    setselectFeature([]);
+    setmodeStatus((p: any) => {
+      return { ...p, selectMode: false, selected: true };
+    });
+  };
   const onSave = () => {
     const allFeature = draw?.getAll();
 
@@ -311,6 +540,7 @@ const Mapcomponent = () => {
   };
 
   const onCheck = async () => {
+    setloading(true);
     const allFeature = draw?.getAll();
 
     const boundingBox = turf.bbox(allFeature);
@@ -326,18 +556,21 @@ const Mapcomponent = () => {
       const check = allFeature.features.map((x: any) => {
         const intersect = turf.booleanIntersects(x, f);
 
-        return intersect;
+        return { status: intersect, id: x.id };
       });
 
       console.log(check);
       if (check.includes(true)) {
         console.log("ทับ");
+        setloading(false);
       } else {
         console.log("ไม่ทับ");
+        setloading(false);
       }
       //turf.booleanIntersects(line, point1);
     } else {
       console.log("สำเร็จ");
+      setloading(false);
     }
 
     // console.log(turf.bbox(allFeature));
@@ -373,6 +606,21 @@ const Mapcomponent = () => {
 
     // draw?.delete(feature);
   };
+
+  const memoLayer = useMemo(() => layerList, [layerList]);
+
+  // useEffect event mouseenter / mouseleave ที่ tile เพื่อทำงานฟังก์ชนที่ต้องการ
+  useEffect(() => {
+    map?.on("mouseenter", "FLOW_METER", (e: any) => {
+      // เปลี่นนการแสดงผล cursor
+      e.target.getCanvas().style.cursor = "move";
+    });
+
+    map?.on("mouseleave", "FLOW_METER", (e: any) => {
+      e.target.getCanvas().style.cursor = "";
+    });
+  }, [map]);
+
   return (
     <div className="h-screen w-screen relative">
       <Dialog
@@ -393,34 +641,38 @@ const Mapcomponent = () => {
                 return (
                   <div
                     key={`layer-${index}`}
-                    className="border rounded-2xl p-2 cursor-pointer"
-                    onClick={() => {
-                      map?.setFilter(x.layer.id, [
-                        "any",
-                        ["all", ["!=", "_id", x.properties._id]],
-                      ]);
-                      let add = x;
-                      add.properties[`_remove_type`] = x.layer.id;
-
-                      draw?.add(add);
-                      draw?.changeMode("simple_select", { featureIds: x.id });
-                      setselectFeature([]);
-                      setselectMode(false);
-                    }}
+                    className="border rounded-2xl p-2"
                   >
-                    <p> {x.layer.id}</p>
+                    <div className="grid grid-cols-2">
+                      <p className="grid text-sm"> ชั้นข้อมูล</p>
+
+                      <p className="grid text-sm"> {x.layer.id}</p>
+                    </div>
 
                     {Object.keys(x?.properties)
                       .filter((s: any) => !s.startsWith("_"))
                       .map((l: any) => {
                         return (
-                          <div key={l} className="flex flex-row space-x-2">
-                            <p>{l}</p>
-                            <p> : </p>
-                            <p>{x?.properties[l] ? x?.properties[l] : ""}</p>
+                          <div key={l} className="grid grid-cols-2">
+                            <p className="grid text-sm"> {l}</p>
+
+                            <p className="grid text-sm font-light">
+                              {x?.properties[l] ? x?.properties[l] : ""}
+                            </p>
                           </div>
                         );
                       })}
+
+                    <div className="flex justify-end">
+                      <Button
+                        className="mt-2"
+                        onClick={() => {
+                          onSelectFeature(x);
+                        }}
+                      >
+                        เลือก
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
@@ -439,40 +691,38 @@ const Mapcomponent = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Are you absolutely sure?</DialogTitle>
-            <DialogDescription>
-              This action cannot be undone. This will permanently delete your
-              account and remove your data from our servers.
-            </DialogDescription>
+            <DialogTitle>คุณลักษณะ</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="h-[60vh]">
-            {Object.keys(editFeature ? editFeature?.properties : {})
-              .filter((s: any) => !s.startsWith("_"))
-              .map((l: any) => {
-                return (
-                  <div key={l}>
-                    <p>{l}</p>
-                    <Input
-                      value={
-                        editFeature?.properties[l]
-                          ? editFeature?.properties[l]
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const newData = {
-                          ...editFeature,
-                          properties: {
-                            ...editFeature.properties,
-                            [l]: e.target.value,
-                          },
-                        };
+          <ScrollArea className="max-h-[60vh]">
+            <div className="flex flex-col space-y-1">
+              {Object.keys(editFeature ? editFeature?.properties : {})
+                .filter((s: any) => !s.startsWith("_"))
+                .map((l: any) => {
+                  return (
+                    <div key={l} className="flex flex-col space-y-1">
+                      <p className="text-sm">{l}</p>
+                      <Input
+                        value={
+                          editFeature?.properties[l]
+                            ? editFeature?.properties[l]
+                            : ""
+                        }
+                        onChange={(e) => {
+                          const newData = {
+                            ...editFeature,
+                            properties: {
+                              ...editFeature.properties,
+                              [l]: e.target.value,
+                            },
+                          };
 
-                        seteditFeature(newData);
-                      }}
-                    />
-                  </div>
-                );
-              })}
+                          seteditFeature(newData);
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+            </div>
           </ScrollArea>
 
           <DialogFooter>
@@ -491,118 +741,243 @@ const Mapcomponent = () => {
                 seteditFeature(null);
               }}
             >
-              SAVE
+              บันทึก
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {mouseLocation ? (
-        <div className="bg-white rounded-lg absolute top-2 right-2 flex flex-col space-y-2 z-10 p-2">
-          <p> {`lat : ${mouseLocation.lat}`}</p>
-          <p> {`lng : ${mouseLocation.lng}`}</p>
+        <div className="bg-white rounded-lg absolute bottom-2 left-2 flex flex-row space-x-2 z-10 p-2">
+          <p className="text-sm">
+            {`ละติจูด : ${mouseLocation.lat?.toFixed(6)}`}
+          </p>
+
+          <p className="text-sm">
+            {`ลองติจูด : ${mouseLocation.lng?.toFixed(6)}`}
+          </p>
         </div>
       ) : null}
 
-      <div className="absolute z-10 right-2 top-1/2 flex flex-col space-y-2">
+      <div className="absolute z-10 top-2 left-2 flex flex-row space-x-2">
         <Button
           onClick={() => {
-            setselectMode(selectMode ? false : true);
+            setmodeStatus((p: any) => {
+              return { ...p, selectMode: !p.selectMode };
+            });
           }}
         >
-          {selectMode ? "Cancel Select" : "Select Feature"}
+          {modeStatus.selectMode ? "Cancel Select" : "Select Feature"}
         </Button>
         <Button
+          disabled={Boolean(modeStatus.selectMode)}
           onClick={() => {
             draw?.changeMode("draw_point");
             setfeatureType("flow_meter");
           }}
         >
-          Draw flow_meter
+          <div className="flex flex-row space-x-2 items-center">
+            <Pencil /> <p className="text-sm">flow meter</p>
+          </div>
         </Button>
 
-        {/* <Button
-          onClick={() => {
-            draw?.changeMode("draw_line_string");
-          }}
-        >
-          Draw line
-        </Button> */}
-
         <Button
+          disabled={Boolean(modeStatus.selectMode)}
           onClick={() => {
             draw?.changeMode("draw_polygon");
             setfeatureType("dma_boundary");
           }}
         >
-          Draw dma_boundary
+          <div className="flex flex-row space-x-2 items-center">
+            <Pencil /> <p className="text-sm">dma boundary</p>
+          </div>
         </Button>
 
         <Button
+          disabled={Boolean(modeStatus.selectMode)}
           onClick={() => {
             draw?.changeMode("draw_polygon");
             setfeatureType("step_test");
           }}
         >
-          Draw step_test
-        </Button>
-        <Button
-          onClick={() => {
-            onDelete();
-          }}
-        >
-          Delete
+          <div className="flex flex-row space-x-2 items-center">
+            <Pencil /> <p className="text-sm">step test</p>
+          </div>
         </Button>
 
-        <Button
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size={"icon"}
+              disabled={Boolean(modeStatus.selectMode || !modeStatus.selected)}
+              onClick={() => {
+                onDelete();
+              }}
+            >
+              <Trash2 />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-sm">ลบ</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* <Button
+          disabled={Boolean(selectMode)}
           onClick={() => {
             draw?.deleteAll();
           }}
         >
           Delete All
-        </Button>
+        </Button> */}
 
-        <Button
-          onClick={() => {
-            const feature = draw?.getSelected();
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size={"icon"}
+              disabled={Boolean(modeStatus.selectMode || !modeStatus.selected)}
+              onClick={() => {
+                const feature = draw?.getSelected();
 
-            if (feature.features[0]) {
-              seteditFeature(feature.features[0]);
-            }
-          }}
-        >
-          Attribute
-        </Button>
-        <Button
+                if (feature.features[0]) {
+                  seteditFeature(feature.features[0]);
+                }
+              }}
+            >
+              <Sheet />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-sm">คุณลักษณะ</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* <Button
+          disabled={Boolean(selectMode || loading)}
           onClick={() => {
             onCheck();
           }}
         >
           Check
-        </Button>
+        </Button> */}
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              disabled={Boolean(loading || !modeStatus.canSave)}
+              size={"icon"}
+              onClick={() => {
+                onSave();
+              }}
+            >
+              <Save />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-sm">บันทึก</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+
+      <div className="absolute z-10 right-2 top-1/2 -translate-y-1/2 flex flex-col space-y-2">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size={"icon"}>
+              <Layers />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="space-y-2">
+            <PopoverHeader>
+              <PopoverTitle>Layer Control</PopoverTitle>
+            </PopoverHeader>
+
+            {memoLayer.map((x: any, index: any) => {
+              return (
+                <div className="flex flex-col space-y-2" key={`${x.id}`}>
+                  <div className="flex flex-row justify-between">
+                    <div className="flex flex-row space-x-2 items-center">
+                      <Switch
+                        checked={Boolean(x?.status)}
+                        onCheckedChange={(b: boolean) => {
+                          if (map?.getLayer(x.id)) {
+                            map?.setLayoutProperty(
+                              x.id,
+                              "visibility",
+                              b ? "visible" : "none",
+                            );
+                            let update = layerList;
+                            update[index].status = b;
+                            setlayerList(update);
+                          }
+                        }}
+                      />
+
+                      <p className="text-sm">{x.id}</p>
+                    </div>
+
+                    <Button
+                      variant={"ghost"}
+                      onClick={() => {
+                        setcollape(collape === index ? undefined : index);
+                      }}
+                    >
+                      <Settings />
+                    </Button>
+                  </div>
+
+                  <Collapsible
+                    open={Boolean(
+                      typeof collape === "number" && collape === index,
+                    )}
+                  >
+                    <CollapsibleContent>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-light">ความโปร่งใส</p>
+                        <Slider
+                          defaultValue={[x.opacity]}
+                          max={1}
+                          step={0.1}
+                          onValueChange={(value: number[]) => {
+                            if (map?.getLayer(x.id)) {
+                              map?.setPaintProperty(
+                                x.id,
+                                "line-opacity",
+                                value[0],
+                              );
+                              let update = layerList;
+                              update[index].opacity = value[0];
+                              setlayerList(update);
+                            }
+                          }}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              );
+            })}
+          </PopoverContent>
+        </Popover>
+
         <Button
-          onClick={() => {
-            onSave();
-          }}
-        >
-          Save
-        </Button>
-        {/* <Button
+          size={"icon"}
           onClick={() => {
             map?.zoomIn();
           }}
         >
-          +
+          <Plus />
         </Button>
         <Button
+          size={"icon"}
           onClick={() => {
             map?.zoomOut();
           }}
         >
-          -
+          <Minus />
         </Button>
 
         <Button
+          size={"icon"}
           onClick={() => {
             map?.resetNorthPitch();
           }}
@@ -612,7 +987,7 @@ const Mapcomponent = () => {
               transform: `rotate(${rotate}deg)`,
             }}
           />
-        </Button> */}
+        </Button>
       </div>
       <div className="h-full w-full" id="map"></div>
     </div>
